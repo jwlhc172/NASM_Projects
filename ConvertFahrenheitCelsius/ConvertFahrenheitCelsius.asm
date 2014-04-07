@@ -78,31 +78,59 @@ _start:
 	mov		ecx, sNumberBuffer
 	mov		edx, [iNumberBufferLen]
 	call		PrintStringLine
-
+	
 	jmp		Exit
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Function Name: 
-; Last Modified: April 6, 2014
+; Function Name: ConvertIntegerToString ( int iInteger )
+; Last Modified: April 7, 2014
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Functional Description: 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Parameters:
+;	eax		iInteger
 ;
 ; Return:
+;	Integer string is stored in sNumberBuffer.
+;	Length of integer string is stored in iNumberBufferLen
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Example Calling Sequence:
-; 	call		
+;	mov		eax, 10
+; 	call		ConvertIntegerToString
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Register Usage in Function:
+;	eax		iInteger
+;	ebx		10 as divisor
+;	ecx		Count number of characters
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Algorithmic Description in Pseudocode:
+;	ecx = 0
+;	bTrueFalse = false
+;	if ( iInteger < 0 )
+;		iInteger = abs ( iInteger )
+;		bTrueFalse = true
+;	do
+;		edx = iInteger mod 10
+;		iInteger = iInteger / 10
+;		edx = edx + 0x30
+;		sNumberBuffer[ecx] = edx
+;		ecx++
+;	while ( eax !== 0 )
+;
+;	if ( bTrueFalse )
+;		sNumberBuffer[ecx] = '-'
+;		ecx++
+;
+;	return
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ConvertIntegerToString:
 	push	ebx
 	push	ecx
 	push	edx
 	xor		ecx, ecx
+	mov		BYTE [bTrueFalse], 0
+	cmp		eax, 0
+	jl		ConvertIntegerToString_3
 ConvertIntegerToString_1:
 	xor		edx, edx
 	mov		ebx, 10
@@ -113,6 +141,8 @@ ConvertIntegerToString_1:
 	inc		ecx
 	test		eax, eax
 	jnz		ConvertIntegerToString_1
+	cmp		BYTE [bTrueFalse], 1
+	je		ConvertIntegerToString_4
 	mov		BYTE [iNumberBufferLen], cl
 ConvertIntegerToString_2:
 	xor		eax, eax
@@ -129,14 +159,24 @@ ConvertIntegerToString_2:
 	pop		ecx
 	pop		ebx
 	ret
+ConvertIntegerToString_3:
+	neg		eax
+	mov		BYTE [bTrueFalse], 1
+	jmp		ConvertIntegerToString_1
+ConvertIntegerToString_4:
+	dec		esp
+	mov		BYTE [esp], '-'
+	inc		ecx
+	mov		BYTE [iNumberBufferLen], cl
+	jmp		ConvertIntegerToString_2
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Function Name: 
-; Last Modified: April 6, 2014
+; Function Name: ConvertFloatToString
+; Last Modified: April 7, 2014
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Functional Description: 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Parameters:
+; Parameters: None
 ;
 ; Return:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -148,10 +188,18 @@ ConvertIntegerToString_2:
 ; Algorithmic Description in Pseudocode:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ConvertFloatToString:
+	push	eax
 	push	ebx
 	push	ecx
 	push	edx
 	xor		ecx, ecx
+	mov		BYTE [bTrueFalse], 0
+	ftst
+	fstsw	ax
+	fwait
+	sahf
+	jb		ConvertFloatToString_6
+ConvertFloatToString_1:
 	mov		eax, 10
 	mov		ebx, decimal_places
 	call		CalculatePower
@@ -162,7 +210,7 @@ ConvertFloatToString:
 	fistp		DWORD [esp]
 	mov		eax, [esp]
 	add		esp, 4
-ConvertFloatToString_1:
+ConvertFloatToString_2:
 	xor		edx, edx
 	mov		ebx, 10
 	div		ebx								; Quotient in eax, Remainder in edx
@@ -171,12 +219,14 @@ ConvertFloatToString_1:
 	mov		BYTE [esp], dl
 	inc		ecx
 	cmp		ecx, decimal_places
-	je		ConvertFloatToString_4				; add decimal character to stack
-ConvertFloatToString_2:
-	test		eax, eax
-	jnz		ConvertFloatToString_1
-	mov		BYTE [iNumberBufferLen], cl
+	je		ConvertFloatToString_5				; add decimal character to stack
 ConvertFloatToString_3:
+	test		eax, eax
+	jnz		ConvertFloatToString_2
+	cmp		BYTE [bTrueFalse], 1
+	je		ConvertFloatToString_7
+	mov		BYTE [iNumberBufferLen], cl
+ConvertFloatToString_4:
 	xor		eax, eax
 	xor		ebx, ebx
 	mov		al, BYTE [iNumberBufferLen]
@@ -186,16 +236,27 @@ ConvertFloatToString_3:
 	inc		esp
 	dec		ecx
 	cmp		ecx, 0
-	ja		ConvertFloatToString_3
+	ja		ConvertFloatToString_4
 	pop		edx
 	pop		ecx
 	pop		ebx
+	pop		eax
 	ret
-ConvertFloatToString_4:
+ConvertFloatToString_5:
 	dec		esp
 	inc		ecx
 	mov		BYTE [esp], decimal
-	jmp		ConvertFloatToString_2
+	jmp		ConvertFloatToString_3
+ConvertFloatToString_6:
+	fabs
+	mov		BYTE [bTrueFalse], 1
+	jmp		ConvertFloatToString_1
+ConvertFloatToString_7:
+	dec		esp
+	mov		BYTE [esp], '-'
+	inc		ecx
+	mov		BYTE [iNumberBufferLen], cl
+	jmp		ConvertFloatToString_4
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Function Name: CalculatePower ( iBase, iPower )
@@ -262,7 +323,7 @@ CalculatePower_3:
 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Function Name: 
+; Function Name: PrintString
 ; Last Modified: April 6, 2014
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Functional Description: 
@@ -285,7 +346,7 @@ PrintString:
 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Function Name: 
+; Function Name: PrintNewLine
 ; Last Modified: April 6, 2014
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Functional Description: 
@@ -310,7 +371,7 @@ PrintNewLine:
 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Function Name: 
+; Function Name: PrintStringLine
 ; Last Modified: April 6, 2014
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Functional Description: 
